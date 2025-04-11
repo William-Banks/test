@@ -32,6 +32,7 @@ def main(page=ft.Page):  # Função principal que é chamada para renderizar a p
             page.appbar.bgcolor = '#3C3D37'
             btn_tema.icon = ft.icons.WB_SUNNY_OUTLINED
             btn_tema.tooltip = 'Alterar para tema claro'
+            
         else:
             page.theme_mode = ft.ThemeMode.LIGHT
             page.bgcolor = '#F6F0F0'
@@ -40,6 +41,7 @@ def main(page=ft.Page):  # Função principal que é chamada para renderizar a p
             page.appbar.bgcolor = '#D5C7A3'
             btn_tema.icon = ft.icons.NIGHTS_STAY_OUTLINED
             btn_tema.tooltip = 'Alterar para tema escuro'
+            
         page.update()  # Atualiza a página com as novas configurações de tema
 
     btn_tema = ft.IconButton(icon = ft.icons.WB_SUNNY_OUTLINED, tooltip = 'Alterar o tema', on_click = alterar_tema)
@@ -61,9 +63,14 @@ def main(page=ft.Page):  # Função principal que é chamada para renderizar a p
             if route == '/':
                 tela = Page1(page)  # Volta para a página inicial com a lista de tarefas
                 page.floating_action_button.visible = False
+                page.appbar.actions[1].visible = False
+                page.appbar.vsible = False
+
             elif route == '/interface':
                 tela = main(page)  # Aqui ele vai criar a tela principal novamente
                 page.floating_action_button.visible = True
+                page.appbar.actions[1].visible = True
+                page.appbar.vsible = True
             else:
                 print(f"Rota desconhecida: {route}")
 

@@ -233,7 +233,8 @@ class Page1:
         dp = ft.ElevatedButton(
             "Escolher data",
             icon=ft.Icons.CALENDAR_MONTH,
-            on_click=lambda e: dlg_modal_edicao.open(dp_edit),
+            on_click=lambda e: self.page.open(dp_edit),
+           
         )
 
         label_data = ft.Text(value=dp_edit.value, size=16)
