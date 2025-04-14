@@ -5,85 +5,76 @@ from model.db import SessionLocal
 
 class Page1:
     def __init__(self, page: ft.Page):
-        self.page = page  # Inicializa a página
+        self.page = page
+        self.expanded_task_id = None
+        self.categoria_filter = None
 
     def construir(self, categoria_filter=None):
-        # Obtém todas as tarefas do banco de dados
         tarefas = crud.listar_tarefa(SessionLocal())
 
-        # Se houver um filtro de categoria, filtra as tarefas
         if categoria_filter and categoria_filter != "Todos":
             tarefas = [t for t in tarefas if t.CATEGORIA == categoria_filter]
-        
-        # Lista de colunas do DataTable
-        columns = [
-            ft.DataColumn(ft.Text("Descrição")),
-            ft.DataColumn(ft.Text("Status")),
-            ft.DataColumn(ft.Text("Categoria")),
-            ft.DataColumn(ft.Text("Data")),
-            ft.DataColumn(ft.Text("Ações")),
-            
-        ]
 
-        # Lista de linhas para o DataTable
-        rows = []
+        tarefa_containers = []
+
+        cor_container_normal = "#3C3D37"
+        cor_container_expandido = "#697565"
+
         for tarefa in tarefas:
-            rows.append(
-                ft.DataRow(
-                    cells=[ 
-                        ft.DataCell(content=ft.Row([
-                            ft.Container(
-                                content=ft.Text(tarefa.DESCRICAO),
-                                width=70,  # Limita a largura para que o texto caiba
-                            )
-                        ])),
-                        ft.DataCell(content=ft.Row([
-                            ft.Container(
-                                content=ft.Text("Concluída" if tarefa.SITUACAO else "Pendente"),
-                                width=70,  # Limita a largura para que o texto caiba
-                            )
-                        ])),
-                        ft.DataCell(content=ft.Row([
-                            ft.Container(
-                                content=ft.Text(str(tarefa.CATEGORIA)),
-                                width=70,  # Limita a largura para que o texto caiba
-                            )
-                        ])),
-                        ft.DataCell(content=ft.Row([
-                            ft.Container(
-                                content=ft.Text(str(tarefa.DATA_TAREFA)),
-                                width=75,  # Limita a largura para que o texto caiba
-                            )
-                        ])),
-                        ft.DataCell(content=ft.Row([
-                            ft.Container(
-                                content=ft.Row([  
+            is_expanded = self.expanded_task_id == tarefa.ID
+            cor_container = cor_container_expandido if is_expanded else cor_container_normal
+
+            tarefa_container = ft.Container(
+                content=ft.Column(
+                    controls=[
+
+                        ft.Row([
+                            ft.Text(tarefa.DESCRICAO, size=16, weight=ft.FontWeight.BOLD),
+                            ft.Text("✅ Concluída" if tarefa.SITUACAO else "⏳ Pendente"),
+                        ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+
+                        ft.AnimatedSwitcher(
+                            content=ft.Column(
+                                controls=[
+                                    ft.Text(f"📅 Data: {tarefa.DATA_TAREFA.strftime('%d/%m/%Y')}" if tarefa.DATA_TAREFA else "📅 Data: não definida"),
+                                    ft.Text(f"📂 Categoria: {tarefa.CATEGORIA}"),
                                     ft.IconButton(
                                         icon=ft.icons.EDIT,
                                         tooltip="Editar tarefa",
                                         on_click=lambda e, task=tarefa: self.editar_tarefa(task)
-                                    ),
-                                ]),  # Limita a largura para que o conteúdo caiba
-                            )
-                        ])),
-                    ] ,
+                                    )
+                                ]
+                            ) if is_expanded else ft.Container(),
+                            duration=300
+                        )
+                    ]
                 ),
+                padding=15,
+                margin=ft.margin.only(bottom=8),
+                border_radius=10,
+                bgcolor=cor_container,
+                ink=True,
+                on_click=lambda e, task_id=tarefa.ID: self.toggle_expand(task_id),
             )
 
-        # Criação da DataTable com configurações de adaptabilidade
-        data_table = ft.DataTable(
-            column_spacing=5,  # Ajuste no espaçamento entre colunas
-            rows=rows,  # Linhas da tabela
-            data_row_min_height=40,  # Menor altura das linhas de dados
-            columns=columns,
-            border=ft.border.all(2, "black"),
-            border_radius=10,
-            data_row_max_height=60,  # Maior altura das linhas de dados
-            heading_row_height=50,  # Altura da linha de cabeçalho
-            show_bottom_border=True,  # Mostrar borda inferior
-        )
-        
-        # Adiciona o Dropdown no canto superior direito
+            tarefa_containers.append(tarefa_container)
+
+        dd = self.get_dropdown()
+
+        return ft.Column([
+            ft.Row([
+                dd
+            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+            ft.Column(tarefa_containers, scroll=ft.ScrollMode.AUTO)
+        ])
+
+    def toggle_expand(self, task_id):
+        self.expanded_task_id = task_id if self.expanded_task_id != task_id else None
+        self.page.controls.clear()
+        self.page.add(self.construir(self.categoria_filter))  # Passando a categoria filtrada para garantir que a filtragem não se perca
+        self.page.update()
+
+    def get_dropdown(self):
         icons = [
             {"name": "Todos", "icon_name": ft.Icons.ALL_OUT},
             {"name": "Pessoal", "icon_name": ft.Icons.EMOJI_EMOTIONS},
@@ -92,72 +83,40 @@ class Page1:
             {"name": "Lista de Desejos", "icon_name": ft.Icons.FAVORITE},
         ]
 
-        def get_options():
-            options = []
-            for icon in icons:
-                options.append(
-                    ft.DropdownOption(key=icon["name"], leading_icon=icon["icon_name"])
-                )
-            return options
+        options = [ft.dropdown.Option(key=icon["name"], leading_icon=icon["icon_name"]) for icon in icons]
 
-        dd = ft.Dropdown(
+        return ft.Dropdown(
             border=ft.InputBorder.UNDERLINE,
             enable_filter=True,
             editable=True,
             leading_icon=ft.Icons.SEARCH,
             label="Filtrar tarefas",
-            options=get_options(),
-            on_change=lambda e: self.filtrar_tarefas(dd.value)
-        )
-
-        # Layout da página com a tabela e o dropdown no canto superior direito
-        return ft.Row(
-            [
-                ft.Column(
-                    [
-                        ft.IconButton(
-                            icon=ft.icons.ARROW_BACK_IOS,  # Ícone de voltar
-                            tooltip="Voltar",
-                            on_click=lambda _: self.page.go("/interface"),  # Ação para voltar à página anterior
-                        ),
-                        dd,
-                        data_table,  # Tabela de tarefas
-                    ],
-                    expand=True,
-                ),
-            ]
+            options=options,
+            on_change=lambda e: self.filtrar_tarefas(e.control.value)
         )
 
     def filtrar_tarefas(self, categoria_selecionada):
-        # Recarrega a página com o filtro aplicado
-        self.page.controls.clear()
-        self.page.add(self.construir(categoria_selecionada))
+        self.categoria_filter = categoria_selecionada  # Atualizando o filtro de categoria
+        self.expanded_task_id = None  # Resetando a tarefa expandida
+        self.page.controls.clear()  # Limpa os controles da página
+        self.page.add(self.construir(self.categoria_filter))  # Passando a categoria filtrada para garantir a filtragem correta
         self.page.update()
 
-    def remover_tarefa(self, tarefa, dlg_modal_edicao):
-        # Função para remover a tarefa, que será chamada no botão vermelho no modal
+    def remover_tarefa(self, tarefa, dlg_modal_edicao, dlg_exclusao):
         def confirmar_exclusao(e):
-            # Remove a tarefa do banco de dados
             crud.excluir_tarefa(SessionLocal(), tarefa.ID)
-            
-            # Atualiza a listagem na interface
             self.page.controls.clear()
-            self.page.add(self.construir())
+            self.page.add(self.construir(self.categoria_filter))  # Passando o filtro para manter
             self.page.update()
-
-            # Fecha o modal de confirmação de exclusão
             self.page.close(dlg_confirmar_exclusao)
-
-            # Fecha o modal de edição apenas se a exclusão for confirmada
             self.page.close(dlg_modal_edicao)
+            self.page.open(dlg_exclusao)
 
         def cancelar_exclusao(e):
-            # Fecha apenas o modal de confirmação de exclusão
             self.page.close(dlg_confirmar_exclusao)
-            self.page.open(dlg_modal_edicao)  # Reabre o modal de edição
+            self.page.open(dlg_modal_edicao)
             self.page.update()
 
-        # Dialogo de confirmação de exclusão
         dlg_confirmar_exclusao = ft.AlertDialog(
             modal=True,
             title=ft.Text("Confirmação de Exclusão"),
@@ -169,25 +128,41 @@ class Page1:
             actions_alignment=ft.MainAxisAlignment.END,
         )
 
-        # Abre o modal de confirmação de exclusão sem fechar o modal de edição
         self.page.open(dlg_confirmar_exclusao)
         dlg_confirmar_exclusao.visible = True
         self.page.update()
 
     def editar_tarefa(self, tarefa):
-        # Função para editar a tarefa
         def salvar_edicao(e):
             descricao = descricao_text.value
             situacao = situacao_switch.value
             categoria = dd_edit.value
             data_tarefa = dp_edit.value
 
+            if not descricao:
+                descricao_text.error_text = 'Descrição é obrigatória'
+                dlg_modal_edicao.update()
+                return
+
+            if not data_tarefa:
+                label_data.value = '📅 Por favor, escolha uma data!'
+                dlg_modal_edicao.update()
+                return
+
             updated_tarefa = crud.editar_tarefa(SessionLocal(), tarefa.ID, descricao, situacao, categoria, data_tarefa)
 
+            dlg_sucesso = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("✅ Tarefa atualizada com sucesso!"),
+            actions=[ft.TextButton("Fechar", on_click=lambda e: self.page.close(dlg_sucesso))],
+            )
+
             if updated_tarefa:
+                # Fecha o modal de edição e mantém o filtro
                 self.page.close(dlg_modal_edicao)
                 self.page.controls.clear()
-                self.page.add(self.construir())
+                self.page.add(self.construir(self.categoria_filter))  # Passa a categoria para manter o filtro
+                self.page.open(dlg_sucesso)
                 self.page.update()
 
         def cancelar_edicao(e):
@@ -204,13 +179,7 @@ class Page1:
             {"name": "Lista de Desejos", "icon_name": ft.Icons.FAVORITE},
         ]
 
-        def get_options():
-            options = []
-            for icon in icons:
-                options.append(
-                    ft.DropdownOption(key=icon["name"], leading_icon=icon["icon_name"])
-                )
-            return options
+        options = [ft.dropdown.Option(key=icon["name"], leading_icon=icon["icon_name"]) for icon in icons]
 
         dd_edit = ft.Dropdown(
             border=ft.InputBorder.UNDERLINE,
@@ -218,50 +187,59 @@ class Page1:
             editable=True,
             leading_icon=ft.Icons.SEARCH,
             label="Categoria",
-            options=get_options(),
+            options=options,
             value=tarefa.CATEGORIA
         )
 
+        label_data = ft.Text(
+            value=f"📅 Data selecionada: {tarefa.DATA_TAREFA.strftime('%d-%m-%Y')}" if tarefa.DATA_TAREFA else "📅 Data não selecionada",
+            size=16
+        )
+
         def handle_change(e):
-            # Atualiza a label com a data selecionada
             data_selecionada = e.control.value
-            label_data.value = f"Data selecionada: {data_selecionada.strftime('%d-%m-%Y')}"
+            label_data.value = f"📅 Data selecionada: {data_selecionada.strftime('%d-%m-%Y')}"
             dlg_modal_edicao.update()
 
-        dp_edit = ft.DatePicker(on_change=handle_change)
+        dp_edit = ft.DatePicker(
+            value=tarefa.DATA_TAREFA,
+            on_change=handle_change
+        )
 
-        dp = ft.ElevatedButton(
+        dp_button = ft.ElevatedButton(
             "Escolher data",
             icon=ft.Icons.CALENDAR_MONTH,
             on_click=lambda e: self.page.open(dp_edit),
-           
         )
 
-        label_data = ft.Text(value=dp_edit.value, size=16)
+        dlg_exclusao = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("🗑️ Tarefa removida com sucesso!"),
+            actions=[ft.TextButton("Fechar", on_click=lambda e: self.page.close(dlg_exclusao))],
+            )
 
         dlg_modal_edicao = ft.AlertDialog(
             modal=True,
             title=ft.Text("Editar Tarefa"),
-            content=ft.Column([  
+            content=ft.Column([
                 descricao_text,
                 dd_edit,
-                dp,
+                dp_button,
+                label_data,
                 situacao_switch,
-            ]),
+            ], spacing=30),
             actions=[
                 ft.TextButton("Salvar", on_click=salvar_edicao),
                 ft.TextButton("Cancelar", on_click=cancelar_edicao),
-                # Botão Excluir na parte inferior esquerda, em vermelho
                 ft.TextButton(
-                    "Excluir", 
-                    on_click=lambda e: self.remover_tarefa(tarefa, dlg_modal_edicao),
-                    style=ft.ButtonStyle(color=ft.colors.RED),  # Usando ButtonStyle para mudar a cor
+                    "Excluir",
+                    on_click=lambda e: self.remover_tarefa(tarefa, dlg_modal_edicao, dlg_exclusao),
+                    style=ft.ButtonStyle(color=ft.colors.RED),
                 ),
             ],
-            actions_alignment=ft.MainAxisAlignment.START,  # Alinhamento do botão para o lado esquerdo
+            actions_alignment=ft.MainAxisAlignment.START,
         )
 
-        # Abre o modal de edição
         self.page.open(dlg_modal_edicao)
         dlg_modal_edicao.visible = True
         self.page.update()
