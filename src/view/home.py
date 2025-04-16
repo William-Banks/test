@@ -17,41 +17,58 @@ def main(page: ft.Page):
     page.window.center()
     page.window.height = 800
     page.window.width = 450
-    page.padding = 5
+    page.padding = 20
     page.scroll = 'adaptive'
     page.bgcolor = '#1E201E'
 
-    def listar_tarefa(e):
-        def rotas(route):
-            page.controls.clear()
-            tela = None
+    def construir_home():
+        tarefas = crud.listar_tarefa(SessionLocal())
+        tarefas_pendentes = [t for t in tarefas if not t.SITUACAO]
 
-            if route == '/':
-                tela = Page1(page)
-                page.floating_action_button.visible = False
+        tarefa_containers = []
 
-            elif route == '/interface':
-                tela = main(page)
-                page.floating_action_button.visible = True
-            else:
-                print(f"Rota desconhecida: {route}")
+        # Título da seção
+        tarefa_containers.append(
+            ft.Text("⏳ Tarefas Pendentes", size=22, weight=ft.FontWeight.BOLD, color=ft.colors.WHITE),
+        )
+        tarefa_containers.append(
+            ft.Divider(thickness=1, color=ft.colors.GREY_700),
+        )
+        
 
-            if tela:
-                page.add(tela.construir())
+        for tarefa in tarefas_pendentes:
+            checkbox = ft.Checkbox(
+                value=False,
+                on_change=lambda e, t=tarefa: concluir_tarefa(t)
+            )
 
-        page.on_route_change = lambda e: rotas(e.route)
-        if e.control.selected_index == 0:
-            page.go('/interface')
-        elif e.control.selected_index == 1:
-            page.go('/')
+            container = ft.Container(
+                content=ft.Row([
+                    ft.Text(tarefa.DESCRICAO, size=16),
+                    checkbox
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                padding=15,
+                margin=ft.margin.only(bottom=10),
+                border_radius=8,
+                bgcolor="#3C3D37"
+            )
 
-    page.appbar = ft.AppBar(
-        leading=ft.Icon(ft.Icons.CHECK_CIRCLE_SHARP),
-        leading_width=40,
-        title=ft.Text("To-Do List"),
-        center_title=False,
-        bgcolor='#3C3D37',
-    )
+            tarefa_containers.append(container)
+
+        if len(tarefa_containers) == 2:  # Só tem o título
+            tarefa_containers.append(
+                ft.Text("👌 Nenhuma tarefa pendente!", size=16, weight=ft.FontWeight.NORMAL)
+            )
+
+        return ft.Column(tarefa_containers, scroll=ft.ScrollMode.AUTO)
+
+    
+    def concluir_tarefa(tarefa):
+        crud.editar_tarefa(SessionLocal(), tarefa.ID, tarefa.DESCRICAO, True, tarefa.CATEGORIA, tarefa.DATA_TAREFA)
+        page.controls.clear()
+        page.add(construir_home())
+        page.open(ft.SnackBar(ft.Text("✅ Tarefa concluída!", color=ft.Colors.WHITE), bgcolor='#3C3D37'))
+        page.update()
 
     def adicionar(e):
         nova_tarefa_modal = ft.TextField(label='Nome da tarefa', width=200, max_length=30)
@@ -91,11 +108,8 @@ def main(page: ft.Page):
             on_click=lambda e: page.open(dp_data),
         )
 
-        dlg_sucesso = ft.AlertDialog(
-            modal=True,
-            title=ft.Text("✅ Tarefa adicionada com sucesso!"),
-            actions=[ft.TextButton("Fechar", on_click=lambda e: page.close(dlg_sucesso))],
-        )
+        
+        
 
         def salvar_edicao(e):
             tarefa_nome = nova_tarefa_modal.value
@@ -118,7 +132,12 @@ def main(page: ft.Page):
                 lista_tarefas.append(tarefa)
 
                 page.close(modal_tarefa)
-                page.open(dlg_sucesso)
+                page.open(ft.SnackBar(ft.Text("✅ Tarefa adicionada com sucesso!", color=ft.Colors.WHITE), bgcolor='#3C3D37'))
+                
+                if page.route == "/":
+                    page.controls.clear()
+                    page.add(construir_home())
+                    page.update()
 
                 nova_tarefa_modal.value = ''
                 nova_tarefa_modal.update()
@@ -126,90 +145,76 @@ def main(page: ft.Page):
 
         modal_tarefa = ft.AlertDialog(
             modal=True,
-            title=ft.Text("Adicionar Tarefa"),
-            content=ft.Column([nova_tarefa_modal, dd, dp, label_data], spacing=30),
+            content=ft.Column([
+                ft.Row([
+                    ft.Text("Adicionar Tarefa", style="headlineSmall"),
+                    ft.IconButton(icon=ft.icons.CLOSE, on_click=lambda e: page.close(modal_tarefa)),
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                nova_tarefa_modal,
+                dd,
+                dp,
+                label_data
+            ], spacing=30),
             actions=[
-                ft.TextButton("Adicionar", on_click=salvar_edicao),
-                ft.TextButton("Cancelar", on_click=lambda e: page.close(modal_tarefa)),
+                ft.TextButton("Adicionar", on_click=salvar_edicao)
             ],
             actions_alignment=ft.MainAxisAlignment.END,
         )
 
         page.open(modal_tarefa)
 
-    # Layout da tela inicial
-    categorias_cards = ft.Row(
-        controls=[
-            ft.Container(
-                content=ft.Column([
-                    ft.Icon(ft.Icons.EMOJI_EMOTIONS, size=30),
-                    ft.Text("Pessoal", size=12),
-                ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-                width=100,
-                height=80,
-                bgcolor="#3C3D37",
-                border_radius=10,
-                alignment=ft.alignment.center,
-            ),
-            ft.Container(
-                content=ft.Column([
-                    ft.Icon(ft.Icons.COMPUTER, size=30),
-                    ft.Text("Trabalho", size=12),
-                ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-                width=100,
-                height=80,
-                bgcolor="#3C3D37",
-                border_radius=10,
-                alignment=ft.alignment.center,
-            ),
-            ft.Container(
-                content=ft.Column([
-                    ft.Icon(ft.Icons.SHOPPING_CART_OUTLINED, size=30),
-                    ft.Text("Compras", size=12),
-                ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-                width=100,
-                height=80,
-                bgcolor="#3C3D37",
-                border_radius=10,
-                alignment=ft.alignment.center,
-            ),
-        ],
-        alignment=ft.MainAxisAlignment.SPACE_EVENLY,
-        spacing=10,
-    )
+    def listar_tarefa(e):
+        def rotas(route):
+            page.controls.clear()
+            tela = None
 
-    resumo_texto = ft.Text(
-        "📌 Clique no botão '+' abaixo para adicionar uma nova tarefa!",
-        size=13,
-        color="#CCCCCC",
-        text_align="center"
-    )
+            if route == '/':
+                tela = Page1(page)
+                page.floating_action_button.visible = False
 
-    mensagem_inicial = ft.Column(
-        [
-            ft.Text("Organize suas tarefas com facilidade.", size=18, weight="bold", color="#FFFFFF"),
-            categorias_cards,
-            ft.Divider(opacity=0),
-            resumo_texto,
-        ],
-        spacing=20,
-        alignment=ft.MainAxisAlignment.CENTER,
-        horizontal_alignment=ft.CrossAxisAlignment.CENTER
+            elif route == '/interface':
+                tela = main(page)
+                page.floating_action_button.visible = True
+            else:
+                print(f"Rota desconhecida: {route}")
+
+            if tela:
+                page.add(tela.construir())
+
+        page.on_route_change = lambda e: rotas(e.route)
+        if e.control.selected_index == 0:
+            page.go('/interface')
+        elif e.control.selected_index == 1:
+            page.go('/')
+
+    page.appbar = ft.AppBar(
+        leading=ft.Icon(ft.Icons.CHECK_CIRCLE_SHARP),
+        leading_width=40,
+        title=ft.Text("To-Do List"),
+        center_title=False,
+        bgcolor='#3C3D37',
     )
 
     page.navigation_bar = ft.NavigationBar(
         destinations=[
             ft.NavigationBarDestination(icon=ft.Icons.HOME, label="Home"),
-            ft.NavigationBarDestination(icon=ft.Icons.TASK, label="Tarefas"),
+            ft.NavigationBarDestination(icon=ft.Icons.LIBRARY_BOOKS, label="Tarefas"),
         ],
         on_change=listar_tarefa
     )
 
     page.floating_action_button = ft.FloatingActionButton(
-        icon=ft.Icons.ADD_ROUNDED, bgcolor='#697565', tooltip="Adicionar tarefa", on_click=adicionar, width=70, height=70,
+        icon=ft.Icons.ADD_ROUNDED,
+        bgcolor='#697565',
+        tooltip="Adicionar tarefa",
+        on_click=adicionar,
+        width=70,
+        height=70,
     )
 
-    page.add(mensagem_inicial)
+    # Quando a app abre, mostra a tela Home
+    page.add(construir_home())
     page.update()
+
 
 ft.app(main)
