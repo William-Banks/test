@@ -15,8 +15,10 @@ Base = declarative_base()
 
 # Modelo de Tarefa
 class Tarefa(Base):
+    #Criação da tabela tarefas_WF
     __tablename__ = 'tarefas_WF'
 
+    # Definição das colunas da tabela
     ID = Column(Integer, primary_key=True, autoincrement=True)
     DESCRICAO = Column(String(255), nullable=False)
     SITUACAO = Column(Boolean, default=False)

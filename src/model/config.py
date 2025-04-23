@@ -2,14 +2,18 @@ from sqlalchemy import create_engine
 from dotenv import load_dotenv
 import os
 
+# Importa a função load_dotenv da biblioteca dotenv para carregar variáveis de ambiente a partir de um arquivo .env
 load_dotenv()
 
+# Definição de uma classe de configuração para gerenciar variáveis de ambiente relacionadas à configuração do banco de dados
 class Config():
-    DB_DATABASE = os.getenv('DB_DATABASE')
-    DB_USER = os.getenv('DB_USER')
-    DB_HOSTNAME = os.getenv('DB_HOSTNAME')
-    DB_PORT = os.getenv("DB_PORT", 3306)
-    DB_PASSWORD = os.getenv("DB_PASSWORD")
+    # Recupera o nome do banco de dados a partir da variáveis de ambiente 
+    DB_DATABASE = os.getenv('DB_DATABASE')  
+    DB_USER = os.getenv('DB_USER')  
+    DB_HOSTNAME = os.getenv('DB_HOSTNAME')  
+    DB_PORT = os.getenv("DB_PORT", 3306)  
+    DB_PASSWORD = os.getenv("DB_PASSWORD")  
+
 
 # Criar a URL
 
